@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIA Calculator</title>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+    background:#f4f4f4;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+h1{
+    text-align:center;
+}
+
+.input-group{
+    margin-bottom:15px;
+}
+
+label{
+    display:block;
+    margin-bottom:5px;
+}
+
+input,select{
+    width:100%;
+    padding:8px;
+    box-sizing:border-box;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+.result{
+    margin-top:20px;
+    padding:15px;
+    background:#eef;
+    border-radius:8px;
+}
+
+.value{
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h1>TIA Calculator</h1>
+
+<div class="input-group">
+<label>Photodiode Current</label>
+<input id="current" value="10">
+<select id="currentUnit">
+<option value="1e-9">nA</option>
+<option value="1e-6" selected>uA</option>
+<option value="1e-3">mA</option>
+</select>
+</div>
+
+<div class="input-group">
+<label>Desired Output Voltage (V)</label>
+<input id="vout" value="2">
+</div>
+
+<div class="input-group">
+<label>Photodiode Capacitance (pF)</label>
+<input id="cap" value="20">
+</div>
+
+<div class="input-group">
+<label>Op-Amp GBW (MHz)</label>
+<input id="gbw" value="10">
+</div>
+
+<div class="input-group">
+<label>Supply Voltage (V)</label>
+<input id="supply" value="5">
+</div>
+
+<button onclick="calculate()">Calculate</button>
+
+<div class="result" id="result">
+
+Rf = -
+<br>
+Cf = -
+<br>
+Bandwidth = -
+
+</div>
+
+</div>
+
+<script>
+
+function formatResistor(r)
+{
+    if(r >= 1e6)
+        return (r/1e6).toFixed(3) + " MΩ";
+
+    if(r >= 1e3)
+        return (r/1e3).toFixed(3) + " kΩ";
+
+    return r.toFixed(3) + " Ω";
+}
+
+function formatCap(c)
+{
+    if(c < 1e-12)
+        return (c*1e15).toFixed(3) + " fF";
+
+    if(c < 1e-9)
+        return (c*1e12).toFixed(3) + " pF";
+
+    return (c*1e9).toFixed(3) + " nF";
+}
+
+function formatFreq(f)
+{
+    if(f >= 1e6)
+        return (f/1e6).toFixed(3) + " MHz";
+
+    if(f >= 1e3)
+        return (f/1e3).toFixed(3) + " kHz";
+
+    return f.toFixed(3) + " Hz";
+}
+
+function calculate()
+{
+    let current =
+        parseFloat(document.getElementById("current").value) *
+        parseFloat(document.getElementById("currentUnit").value);
+
+    let vout =
+        parseFloat(document.getElementById("vout").value);
+
+    let cd =
+        parseFloat(document.getElementById("cap").value) * 1e-12;
+
+    let gbw =
+        parseFloat(document.getElementById("gbw").value) * 1e6;
+
+    let supply =
+        parseFloat(document.getElementById("supply").value);
+
+    let rf = vout/current;
+
+    let cf = Math.sqrt(
+        cd/(2*Math.PI*rf*gbw)
+    );
+
+    let bw = 1/(2*Math.PI*rf*cf);
+
+    let swing =
+        vout < supply
+        ? "OK"
+        : "Output exceeds supply";
+
+    document.getElementById("result").innerHTML =
+    `
+    <h3>Results</h3>
+
+    Rf = <span class="value">${formatResistor(rf)}</span><br><br>
+
+    Cf = <span class="value">${formatCap(cf)}</span><br><br>
+
+    Bandwidth = <span class="value">${formatFreq(bw)}</span><br><br>
+
+    Output Swing = <span class="value">${swing}</span>
+    `;
+}
+
+calculate();
+
+</script>
+
+</body>
+</html>
