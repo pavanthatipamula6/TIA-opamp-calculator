@@ -3,14 +3,15 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>TIA Calculator</title>
+<title>TIA Design Calculator</title>
 
 <style>
+
 body{
     font-family:Arial,sans-serif;
-    background:#f5f5f5;
+    background:#f0f2f5;
     margin:0;
     padding:20px;
 }
@@ -20,12 +21,13 @@ body{
     margin:auto;
     background:white;
     padding:25px;
-    border-radius:10px;
-    box-shadow:0 0 10px rgba(0,0,0,0.15);
+    border-radius:12px;
+    box-shadow:0 0 15px rgba(0,0,0,0.15);
 }
 
 h1{
     text-align:center;
+    color:#1e3a8a;
 }
 
 .row{
@@ -41,32 +43,46 @@ label{
 input{
     width:100%;
     padding:10px;
+    font-size:15px;
     box-sizing:border-box;
 }
 
 button{
     width:100%;
-    padding:12px;
+    padding:14px;
     font-size:18px;
+    border:none;
+    background:#2563eb;
+    color:white;
+    border-radius:6px;
     cursor:pointer;
+}
+
+button:hover{
+    background:#1d4ed8;
 }
 
 .results{
     margin-top:25px;
     padding:20px;
     background:#eef4ff;
-    border-radius:8px;
+    border-radius:10px;
 }
 
-.ok{
+.pass{
     color:green;
     font-weight:bold;
 }
 
-.bad{
+.fail{
     color:red;
     font-weight:bold;
 }
+
+.resultLine{
+    margin-bottom:12px;
+}
+
 </style>
 </head>
 
@@ -74,203 +90,223 @@ button{
 
 <div class="container">
 
-<h1>Photodiode TIA Calculator</h1>
+<h1>Transimpedance Amplifier Calculator</h1>
 
 <div class="row">
-<label>Photodiode Minimum Current (µA)</label>
+<label>Input Current Minimum (µA)</label>
 <input id="imin" value="0">
 </div>
 
 <div class="row">
-<label>Photodiode Maximum Current (µA)</label>
-<input id="imax" value="10">
+<label>Input Current Maximum (µA)</label>
+<input id="imax" value="50">
 </div>
 
 <div class="row">
 <label>Output Voltage Minimum (V)</label>
-<input id="vmin" value="0.5">
+<input id="vomin" value="0">
 </div>
 
 <div class="row">
 <label>Output Voltage Maximum (V)</label>
-<input id="vmax" value="4.5">
+<input id="vomax" value="5">
 </div>
 
 <div class="row">
-<label>Desired Bandwidth (Hz)</label>
-<input id="bw" value="10000">
+<label>Bandwidth fp (Hz)</label>
+<input id="fp" value="10000">
 </div>
 
 <div class="row">
-<label>Photodiode Capacitance (pF)</label>
-<input id="cp" value="20">
+<label>Total Input Capacitance Ci (pF)</label>
+<input id="ci" value="6">
 </div>
 
 <div class="row">
 <label>VCC (V)</label>
-<input id="vcc" value="5">
+<input id="vcc" value="15">
 </div>
 
 <div class="row">
 <label>VEE (V)</label>
-<input id="vee" value="0">
+<input id="vee" value="-15">
 </div>
 
-<button onclick="calculate()">Calculate</button>
+<button onclick="calculate()">
+Calculate
+</button>
 
 <div class="results" id="result">
-Enter values and click Calculate
+Enter values and press Calculate
 </div>
 
 </div>
 
 <script>
 
-const E96 = [
-100,102,105,107,110,113,115,118,121,124,
-127,130,133,137,140,143,147,150,154,158,
-162,165,169,174,178,182,187,191,196,200,
-205,210,215,221,226,232,237,243,249,255,
-261,267,274,280,287,294,301,309,316,324,
-332,340,348,357,365,374,383,392,402,412,
-422,432,442,453,464,475,487,499,511,523,
-536,549,562,576,590,604,619,634,649,665,
-681,698,715,732,750,768,787,806,825,845,
-866,887,909,931,953,976
+const E12Caps = [
+1.0,1.2,1.5,1.8,2.2,2.7,
+3.3,3.9,4.7,5.6,6.8,8.2
 ];
 
-function nearestE96(value)
+function nearestStandardCap(valuePF)
 {
-    let decade = Math.pow(10,Math.floor(Math.log10(value))-2);
+    let decade =
+    Math.pow(
+        10,
+        Math.floor(Math.log10(valuePF))
+    );
 
-    let normalized = value/decade;
+    let normalized =
+    valuePF / decade;
 
-    let best = E96[0];
-    let error = Math.abs(normalized-E96[0]);
+    let selected = E12Caps[0];
 
-    for(let r of E96)
+    for(let i=0;i<E12Caps.length;i++)
     {
-        let e = Math.abs(normalized-r);
-
-        if(e < error)
+        if(E12Caps[i] <= normalized)
         {
-            error = e;
-            best = r;
+            selected = E12Caps[i];
         }
     }
 
-    return best*decade;
-}
-
-function formatR(r)
-{
-    if(r >= 1e6)
-        return (r/1e6).toFixed(3)+" MΩ";
-
-    if(r >= 1e3)
-        return (r/1e3).toFixed(3)+" kΩ";
-
-    return r.toFixed(2)+" Ω";
-}
-
-function formatC(c)
-{
-    if(c < 1e-9)
-        return (c*1e12).toFixed(2)+" pF";
-
-    return (c*1e9).toFixed(2)+" nF";
-}
-
-function formatBW(bw)
-{
-    if(bw >= 1e6)
-        return (bw/1e6).toFixed(3)+" MHz";
-
-    if(bw >= 1e3)
-        return (bw/1e3).toFixed(3)+" kHz";
-
-    return bw.toFixed(2)+" Hz";
+    return selected * decade;
 }
 
 function calculate()
 {
     let imin =
-        parseFloat(document.getElementById("imin").value)*1e-6;
+    parseFloat(document.getElementById("imin").value);
 
     let imax =
-        parseFloat(document.getElementById("imax").value)*1e-6;
+    parseFloat(document.getElementById("imax").value);
 
-    let vmin =
-        parseFloat(document.getElementById("vmin").value);
+    let vomin =
+    parseFloat(document.getElementById("vomin").value);
 
-    let vmax =
-        parseFloat(document.getElementById("vmax").value);
+    let vomax =
+    parseFloat(document.getElementById("vomax").value);
 
-    let bw =
-        parseFloat(document.getElementById("bw").value);
+    let fp =
+    parseFloat(document.getElementById("fp").value);
 
-    let cp =
-        parseFloat(document.getElementById("cp").value)*1e-12;
+    let ci_pf =
+    parseFloat(document.getElementById("ci").value);
 
     let vcc =
-        parseFloat(document.getElementById("vcc").value);
+    parseFloat(document.getElementById("vcc").value);
 
     let vee =
-        parseFloat(document.getElementById("vee").value);
+    parseFloat(document.getElementById("vee").value);
 
-    let rf =
-        (vmax-vmin)/(imax-imin);
+    //-----------------------------------
+    // Step 1
+    //-----------------------------------
 
-    let cf =
-        1/(2*Math.PI*rf*bw);
+    let r1 =
+    (vomax - vomin) /
+    ((imax - imin) * 1e-6);
 
-    let actual_bw =
-        1/(2*Math.PI*rf*cf);
+    //-----------------------------------
+    // Step 2
+    //-----------------------------------
 
-    let e96 =
-        nearestE96(rf);
+    let c1 =
+    1 /
+    (2 * Math.PI * r1 * fp);
 
-    let swing;
+    let c1_pf =
+    c1 * 1e12;
 
-    if(vmax < (vcc-0.2) && vmin > (vee+0.2))
+    let c1_standard_pf =
+    nearestStandardCap(c1_pf);
+
+    //-----------------------------------
+    // Step 3
+    //-----------------------------------
+
+    let c1_standard_f =
+    c1_standard_pf * 1e-12;
+
+    let ci_f =
+    ci_pf * 1e-12;
+
+    let gbw =
+    (ci_f + c1_standard_f) /
+    (
+        2 *
+        Math.PI *
+        r1 *
+        Math.pow(c1_standard_f,2)
+    );
+
+    //-----------------------------------
+    // Supply Check
+    //-----------------------------------
+
+    let swingCheck;
+
+    if(vomax < vcc && vomin > vee)
     {
-        swing =
-        "<span class='ok'>PASS</span>";
+        swingCheck =
+        "<span class='pass'>PASS</span>";
     }
     else
     {
-        swing =
-        "<span class='bad'>FAIL</span>";
+        swingCheck =
+        "<span class='fail'>FAIL</span>";
     }
 
+    //-----------------------------------
+    // Formatting
+    //-----------------------------------
+
+    let r1Text;
+
+    if(r1 >= 1e6)
+        r1Text = (r1/1e6).toFixed(3) + " MΩ";
+    else
+        r1Text = (r1/1000).toFixed(3) + " kΩ";
+
+    let gbwText;
+
+    if(gbw >= 1e6)
+        gbwText = (gbw/1e6).toFixed(3) + " MHz";
+    else if(gbw >= 1e3)
+        gbwText = (gbw/1e3).toFixed(3) + " kHz";
+    else
+        gbwText = gbw.toFixed(3) + " Hz";
+
+    //-----------------------------------
+    // Output
+    //-----------------------------------
+
     document.getElementById("result").innerHTML =
-    `
-    <h2>Results</h2>
 
-    <b>Feedback Resistor (R1)</b><br>
-    ${formatR(rf)}
-    <br><br>
+    "<h2>Results</h2>" +
 
-    <b>Nearest E96 Value</b><br>
-    ${formatR(e96)}
-    <br><br>
+    "<div class='resultLine'><b>Step 1 : R1</b><br>" +
+    r1Text +
+    "</div>" +
 
-    <b>Feedback Capacitor (C1)</b><br>
-    ${formatC(cf)}
-    <br><br>
+    "<div class='resultLine'><b>Step 2 : Calculated C1</b><br>" +
+    c1_pf.toFixed(2) +
+    " pF</div>" +
 
-    <b>Calculated Bandwidth</b><br>
-    ${formatBW(actual_bw)}
-    <br><br>
+    "<div class='resultLine'><b>Selected Standard C1</b><br>" +
+    c1_standard_pf.toFixed(0) +
+    " pF</div>" +
 
-    <b>Photodiode Capacitance</b><br>
-    ${formatC(cp)}
-    <br><br>
+    "<div class='resultLine'><b>Step 3 : Minimum GBW</b><br>" +
+    gbwText +
+    "</div>" +
 
-    <b>Output Swing Check</b><br>
-    ${swing}
-    `;
+    "<div class='resultLine'><b>Output Swing Check</b><br>" +
+    swingCheck +
+    "</div>";
 }
+
+calculate();
 
 </script>
 
